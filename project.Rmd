@@ -1,0 +1,373 @@
+---
+title: "Mystery of Masks: Case Study from Covid-19"
+author: "Edgar Mkhitaryan"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    fig_caption: yes        
+    includes:  
+      in_header: Untitled.tex
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, fig.align = "center", global.par = TRUE)
+library(data.table)
+library(tidyverse)
+library(openxlsx)
+library(RColorBrewer)
+library(patchwork)
+```
+
+
+```{r datareading}
+
+df <- read.xlsx("covid.xlsx", detectDates = T)
+
+```
+
+
+```{r datacleaning}
+
+# Change variable 'age' name to be proper
+names(df)[1] <- 'age'
+setDT(df)
+
+# Remove unnecessary letters
+df[, age2 := gsub("interval_", "", age)]
+df[, 1] <- NULL
+
+# Remove unnecessary variables
+df[, `:=`(userAgent = NULL,
+          guid = NULL,
+          ip = NULL)]
+
+df <- df %>% 
+  mutate(leftHomeTimes = case_when(leftHomeTimes %in% c("didNotLeft", 
+                                                        "didNotLeave") ~ '0',
+                                   leftHomeTimes == "oneTime" ~ '1',
+                                   leftHomeTimes == "twoTimesOrMore" ~ '>2'))
+
+df <- df %>% 
+  mutate(mentalHealthImpact = gsub(pattern = "Impact", replacement = "",
+                                   mentalHealthImpact))
+
+df <- df %>% mutate(testPos = ifelse(virusTest == "positive", 1, 0),
+                    testEver = ifelse(virusTest == 'notTested', 0, 1))
+
+df <- df %>% 
+  mutate(gender2 = case_when(gender %in% c('other', 'notWantToShare', 'notShared')
+                             ~ 'other',
+                             TRUE ~ gender))
+
+# Change characters to factors
+df <- df %>% mutate_if(is.character, as.factor)
+
+
+```
+
+```{r calcuations}
+
+numberOfTests <- df %>%
+  group_by(virusTest) %>%
+  summarise(count = n())
+
+numberOfTests$percentage <- numberOfTests$count / sum(numberOfTests$count) * 100
+
+numberOfMasks <- df %>%
+  filter(!is.na(faceCovering)) %>%
+  group_by(faceCovering) %>%
+  summarise(count = n()) %>%
+  as.data.frame()
+
+numberOfMasks$percent = numberOfMasks$count / sum(numberOfMasks$count) * 100
+
+
+```
+\pagebreak
+
+# The problem/data description
+
+## About the report
+
+Due to pandemic, it is very important nowadays to understand how to prevent COVID-19 from spreading and whether the measures taken by the government are efficient enough. This study focuses on one of the most arguable questions regarding the pandemic, whether masks are an efficient way to stop the virus spread. Moreover, the symptoms of the virus will be analyzed and discussed.
+
+## Data description
+
+The data for this study is provided by NetGenix. For more infromation regardnig the data you can visit this link (https://infogears.org/).
+
+Data contains observations for 16768 individuals, mostly from the US. Also, it contains 33 variables, including gender, age, face covering, symptoms, exposure level, test results, etc. 
+On the webpage of the project (https://infogears.org/dashboard/) we can see the dashboard created by the company. For example, there are some bar plots showing age vs. mask usage, age vs. mobility, etc. 
+
+## Getting familiar with data
+
+To better understand the data we will analyze, let's proceed with some descriptive plots. The figure below presents the distribution of ages by gender in the data. As can be observed, there are more females in all age intervals. Moreover, people are mostly between 36 and 75 age interval.
+
+```{r fig.width=6, fig.height=3.5}
+
+ggplot(df, aes(x=age2, fill = gender2)) + geom_bar() +
+  labs(title = "Age Distribution by Gender", x  = "Age Intervals", 
+       y = "Frequency", fill = "Gender") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 30))
+
+```
+
+In the following figure, we can observe very low number of people with positive test results and those waiting for the results in all age intervals and genders. The majority of people are not tested at all. Moreover, we can see that females dominate in the dataset. To better understand the distribution of test results in the dataset, we can investigate the percentage of people by test results.
+
+```{r fig.width=10, fig.height=4}
+
+p1 <- ggplot(df, aes(x=age2, fill = virusTest)) + 
+  geom_bar() +
+  labs(title = "Age Distribution by Test Results", x  = "Age Intervals", 
+       y = "Frequency", fill = "Virus Test") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 30), legend.position ="none")
+
+p2 <- ggplot(df, aes(x=gender2, fill = virusTest)) + 
+  geom_bar() +
+  labs(title = "Gender Distribution by Test Results", x  = "Gender", 
+       y = "Frequency", fill = "Virus Test") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() 
+
+p1+p2
+
+
+```
+
+The figure below supports our previous finding of most people not being tested at all (`r round(numberOfTests[3,3],2)`%), while only `r round(numberOfTests[4,3],2)`% have positive test results.
+
+- Not tested `r round(numberOfTests[3,3],2)`%
+- Positive tests `r round(numberOfTests[4,3],2)`%
+- Negative tests `r round(numberOfTests[2,3],2)`%
+- Awaiting results `r round(numberOfTests[1,3],2)`%
+
+```{r fig.width=4, fig.height=3}
+
+ggplot(df, aes(x=factor(1), fill = virusTest)) + geom_bar(width = 1) +
+   coord_polar(theta = 'y') +
+  scale_fill_brewer(palette = "Set2") + 
+  labs(x="", y="", title = "Virus Test Results", fill = "Virus Test") + 
+  theme(plot.background  = element_rect(colour = "white")) +
+  theme_void()
+
+```
+
+Here we can observe that most of the people (around `r round(numberOfMasks[1, 3],2)`%) are always wearing masks. However, in contrast to this only `r round(numberOfMasks[3, 3],2)`% of people never wear masks.
+
+
+- Always `r round(numberOfMasks[1, 3],2)`%
+- Never `r round(numberOfMasks[2, 3],2)`%
+- Sometimes `r round(numberOfMasks[3, 3],2)`%
+
+In the future analysis, the report will concentrate on whether the masks are efficient ways of protection from the virus or not.
+
+
+```{r fig.width=4, fig.height=3}
+
+temp_df <- df %>%
+  filter(!is.na(faceCovering)) %>%
+  group_by(faceCovering) %>%
+  summarise(count = n())
+
+temp_df$fraction = temp_df$count / sum(temp_df$count)
+
+temp_df$ymax = cumsum(temp_df$fraction)
+
+temp_df$ymin = c(0, head(temp_df$ymax, n=-1))
+
+ggplot(temp_df, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=faceCovering)) +
+     geom_rect() +
+     coord_polar(theta="y") +
+     xlim(c(2, 4)) +
+     theme_void() + 
+     labs(fill = "Face Covering", title = "Percentage of People Wearing Mask") +
+     scale_fill_brewer(palette = "Set2")
+
+
+```
+
+# Main hypotheses
+
+The hypothesis for this report is whether the masks are efficient ways of protection from the virus.
+
+# Analysis
+
+The graph below depicts the number of times people left their houses by frequency of face covering. We can clearly see that more people are never wearing mask left home at least once. Hence, the future analysis of mask efficiency will be more accurate as people never wearing masks have a higher probability of being contaminated than those wearing masks, as stated by WHO.
+
+```{r fig.height=3, fig.width=4}
+
+df <- df %>% 
+  mutate(leftHomeTimes = factor(leftHomeTimes, levels = c("0", "1", ">2")))
+
+df %>%
+  filter(!is.na(faceCovering)) %>%
+  ggplot(aes(x=leftHomeTimes, fill=faceCovering)) + 
+  geom_bar() +
+  theme_bw() +
+  labs(x="Times Left Home", y="Frequency", 
+       title = "Times Left Home by Face Covering", fill = "Face Covering") +
+  scale_fill_brewer(palette = "Set2")
+
+
+```
+
+
+The graph below depicts the test results by face-covering frequency. We can observe very large number of people wearing masks in all three categories. Surprisingly, more than 80% of people who tested positive always wear masks.
+
+```{r fig.height=3, fig.width=5}
+
+df %>% 
+  filter(!is.na(faceCovering)) %>% 
+  ggplot(aes(x = virusTest, fill = faceCovering)) +
+  geom_bar(position = 'fill') + 
+  labs(title = "Test Results by Face Covering", x="Test Result", 
+       y="Percentage", fill="Face Covering") + 
+  theme_bw() + 
+  scale_fill_brewer(palette = "Set2")
+
+
+```
+
+
+To further understand the patterns that describe the test results, let's observe the symptoms that appear before test results are available. Hence, this may give an opportunity to predict test results. Below we see that most people who tested positive have some kind of symptom, whereas far less people who tested negative or are not tested at all have symptoms. Thus, we can imply that the symptoms can be used to predict the test results, as symptoms come first. Moreover, we can see that the top two symptoms in all categories are fatigue and headache.
+
+```{r fig.height=4, fig.width=6}
+
+df %>% 
+  group_by(virusTest) %>% 
+  summarise(bodyAche = mean(bodyAche), 
+            headAche = mean(headAche),
+            diarrhea = mean(diarrhea),
+            breathing = mean(difficultyBreathing),
+            disorientation = mean(disorientation),
+            fatigue = mean(fatigue),
+            irritatedEyes = mean(irritatedEyes),
+            lossOfSmell = mean(lossOfSmell),
+            persistentCough = mean(persistentCough),
+            soreThroat = mean(soreThroat),
+            temperature = mean(temperature)) %>% 
+  gather(symptom, prob, bodyAche:temperature) %>% 
+  arrange(desc(prob)) %>%
+  ggplot(aes(x = reorder(symptom, prob), y = prob)) + 
+  geom_bar(stat = "identity", fill = 'steelblue') +
+  facet_wrap(~virusTest, scales = 'free') +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "Symptom", y = "Percentage", 
+       title = "Percentage of People with Symptoms by Test Results")
+
+```
+
+To further understand the effectiveness of masks, let's analyze symptoms by frequency of wearing masks. The below graph reveals that regardless of face-covering, the distribution of symptoms is similar for all categories. For example, people with top 3 symptoms (headache, fatigue, and sore throat) in all three categories of face-covering are in a range of around 4-4.5%.
+
+```{r fig.height=4, fig.width=6}
+
+df %>% 
+  group_by(faceCovering) %>%
+  summarise(body = mean(bodyAche), 
+            head = mean(headAche),
+            diarrhea = mean(diarrhea),
+            breathing = mean(difficultyBreathing),
+            disorientation = mean(disorientation),
+            fatigue = mean(fatigue),
+            irritatedEyes = mean(irritatedEyes),
+            lossOfSmell = mean(lossOfSmell),
+            persistentCough = mean(persistentCough),
+            soreThroat = mean(soreThroat),
+            temperature = mean(temperature)) %>%
+  gather(symptom, prob, body:temperature) %>% 
+  filter(!is.na(faceCovering)) %>% 
+  arrange(desc(prob)) %>% 
+  ggplot(aes(x = symptom, y = prob)) + 
+  geom_bar(stat = "identity", fill = 'steelblue') +
+  coord_flip() +
+  facet_wrap(~faceCovering) +
+  theme_bw() +
+  labs(x = "Symptom", y = "Percentage", 
+       title = "Percentage of People with Symptoms by Mask Usage")
+
+```
+
+In the following bar chart, we can see that regardless of whether a person has symptoms or not, the distribution of face-covering frequency is the same. Hence we can imply that masks have nothing to do with having symptoms, thus, with being contaminated.
+
+```{r fig.height=3, fig.width=4}
+
+df %>%
+  mutate(symptom = case_when(noSymptoms == 1 ~ "No Symptoms",
+                             noSymptoms == 0 ~ "Have Symptoms")) %>%
+  filter(!is.na(faceCovering)) %>%
+  group_by(faceCovering, symptom) %>%
+  summarise(N = n()) %>%
+  as.data.frame() %>%
+  ggplot(aes(x=symptom, y=N, fill = faceCovering)) + 
+  geom_bar(position = "fill", stat = "identity") + 
+  labs(title = "Face Covering by Symptom Existance", x="Symptom Existance", 
+       y="Percentage", fill = "Face Covering") + 
+  theme_bw() + 
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+It would be also very interesting to observe how people end up when having direct contact with a contaminated person. The figure below shows the proportion of test results by each category of mask usage for people who had direct contact. We can observe a high proportion of positive cases for people never wearing masks. However, this data is not representative as there are only a few people who had direct contact and never wore masks. On the other hand, proportionally more people always wearing masks tested positive compared to those wearing masks occasionally. This again supports the notion that masks are not the best way to be protected from the virus.
+
+```{r fig.height=3.5, fig.width=4}
+
+df %>% 
+  group_by(faceCovering, virusTest, exposureLevel) %>% 
+  summarise(N = n()) %>% 
+  filter(!is.na(faceCovering) & exposureLevel == "haveDirectContact") %>% 
+  ggplot(aes(x = faceCovering, y = N, fill = virusTest)) + 
+  geom_bar(position = 'fill', stat = "identity") +
+  labs(title = "Poeple with Direct Contact", fill="Test Result",
+       y="Percentage", x="Face Covering") + 
+  theme_bw() +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+To further analyze the effect of the mask, we can investigate its impact on mental health. The graph below reveals that proportionally more people wearing masks have problems with mental health.
+
+```{r fig.height=3.5, fig.width=5}
+
+df %>%
+  filter(!is.na(faceCovering)) %>%
+  ggplot(aes(x=faceCovering, fill=mentalHealthImpact)) + 
+  geom_bar(position = "fill") + 
+  theme_bw() + 
+  labs(x="Face covering", y="Percentage", 
+       title = "Face Covering by Mental Health", fill = "Mental Health Impact") +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+\pagebreak
+
+# Summary of findings
+
+|    In conclusion, as we saw from the analysis above, more people who never wear masks tend to leave their houses at least once. As a result, the chances for them to be contaminated are higher. However, from the analysis, we saw that most of the people who tested positive were always wearing masks. The report also revealed that most of the people who tested positive had some symptoms, with headache and fatigue being the top two symptoms. However, the distribution of people with symptoms is the same regardless of mask usage frequency. 
+|    The main takeaway from this report is that masks are not that efficient, although most people are wearing and are encouraged by the government to wear masks. Moreover, we saw that wearing masks affects the mental health state of people.
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
