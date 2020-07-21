@@ -1,13 +1,18 @@
 ---
 title: "Mystery of Masks: Case Study from Covid-19"
 author: "Edgar Mkhitaryan"
-output:
-  pdf_document:
-    toc: true
-    number_sections: true
-    fig_caption: yes        
-    includes:  
-      in_header: Untitled.tex
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+# output:
+#   pdf_document:
+#     toc: true
+#     number_sections: true
+#     fig_caption: yes        
+#     includes:  
+#       in_header: Untitled.tex
     
 ---
 
