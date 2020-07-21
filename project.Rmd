@@ -98,6 +98,9 @@ numberOfMasks$percent = numberOfMasks$count / sum(numberOfMasks$count) * 100
 
 Due to pandemic, it is very important nowadays to understand how to prevent COVID-19 from spreading and whether the measures taken by the government are efficient enough. This study focuses on one of the most arguable questions regarding the pandemic, whether masks are an efficient way to stop the virus spread. Moreover, the symptoms of the virus will be analyzed and discussed.
 
+| Report web page: (https://edgarmkhitaryan.github.io/Covid-19-effectivenes-of-masks/)
+| GitHub repository: (https://github.com/edgarmkhitaryan/Covid-19-effectivenes-of-masks/)
+
 ## Data description
 
 The data for this study is provided by NetGenix. For more infromation regardnig the data you can visit this link (https://infogears.org/).
