@@ -10,8 +10,8 @@ knit: (function(input_file, encoding) {
 #   pdf_document:
 #     toc: true
 #     number_sections: true
-#     fig_caption: yes        
-#     includes:  
+#     fig_caption: yes
+#     includes:
 #       in_header: Untitled.tex
     
 ---
